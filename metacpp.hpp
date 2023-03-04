@@ -291,7 +291,6 @@ struct match_int {
 
 // NOTE: Unconstrained specialization is used to terminate the recursion
 template <typename I, char C, char ... Chars>
-// requires std::is_integral_v <I>
 struct match_int <I, const data::string <C, Chars...>> {
 	static constexpr bool success = false;
 	using next = const data::string <C, Chars...>;
@@ -315,6 +314,19 @@ struct match_int <I, const data::string <C, Chars...>> {
 			return match_int <I, impl_rest> ::value(a);
 		else
 			return a;
+	}
+};
+
+template <typename I, char C, char ... Chars>
+requires (C == '-')
+struct match_int <I, const data::string <C, Chars...>> {
+	using impl_rest = const data::string <Chars...>;
+
+	static constexpr bool success = match_int <I, impl_rest> ::success;
+	using next = typename match_int <I, impl_rest> ::next;
+
+	static constexpr I value(I accumulated = 0) {
+		return -match_int <I, impl_rest> ::value(accumulated);
 	}
 };
 
@@ -399,6 +411,17 @@ struct match_float <F, const data::string <C, Chars...>> {
 
 	static constexpr F value() {
 		return impl_parser::value();
+	}
+};
+
+template <typename F, char C, char ... Chars>
+requires (C == '-')
+struct match_float <F, const data::string <C, Chars...>> {
+	static constexpr bool success = match_float <F, const data::string <Chars...>> ::success;
+	using next = typename match_float <F, const data::string <Chars...>> ::next;
+
+	static constexpr F value() {
+		return -match_float <F, const data::string <Chars...>> ::value();
 	}
 };
 

@@ -49,18 +49,38 @@ int rt_main()
 
 namespace test_lang {
 
-constexpr char int_str[] = "123 123";
+constexpr char int_str[] = "123";
 
+// Basic string/list check
 using int_str_type = metacpp::to_string_t <int_str>;
-
 static_assert(metacpp::is_string <int_str_type> ::value);
 static_assert(metacpp::is_list <int_str_type> ::value);
 
+// Integer parsing
 static_assert(metacpp::lang::match_int <int, int_str_type> ::success);
 static_assert(metacpp::lang::match_int <int, int_str_type> ::value() == 123);
 
+// Making sure that the next type is empty
 using int_str_next_type = metacpp::lang::match_int <int, int_str_type> ::next;
 static_assert(metacpp::is_empty <int_str_next_type> ::value);
+
+// Negative integer parsing
+constexpr char negative_int_str[] = "-123";
+using negative_int_str_type = metacpp::to_string_t <negative_int_str>;
+static_assert(metacpp::lang::match_int <int, negative_int_str_type> ::success);
+static_assert(metacpp::lang::match_int <int, negative_int_str_type> ::value() == -123);
+
+// Float parsing
+constexpr char float_str[] = "123.456";
+using float_str_type = metacpp::to_string_t <float_str>;
+static_assert(metacpp::lang::match_float <float, float_str_type> ::success);
+static_assert(metacpp::lang::match_float <float, float_str_type> ::value() == 123.456f);
+
+// Negative float parsing
+constexpr char negative_float_str[] = "-123.456";
+using negative_float_str_type = metacpp::to_string_t <negative_float_str>;
+static_assert(metacpp::lang::match_float <float, negative_float_str_type> ::success);
+static_assert(metacpp::lang::match_float <float, negative_float_str_type> ::value() == -123.456f);
 
 }
 
@@ -70,7 +90,7 @@ constexpr char str[] = R"(
 (list 4 5 6 7 8 9)
 (list 10 11 12 13 14 15 16 17 18 19 20)
 (+ 1 2 3 5)
-(* 2 3 4 5 6 7 8 9 10)
+(* 2 3 4 5 6 -7 8 9 10)
 (- 10 93)
 (/ 10 3)
 )";

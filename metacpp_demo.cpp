@@ -64,11 +64,18 @@ static_assert(metacpp::is_empty <int_str_next_type> ::value);
 
 }
 
+// TODO: negative number parsing...
 constexpr char str[] = R"(
 (list 1 2 3)
 (list 4 5 6 7 8 9)
 (list 10 11 12 13 14 15 16 17 18 19 20)
+(+ 1 2 3 5)
+(* 2 3 4 5 6 7 8 9 10)
+(- 10 93)
+(/ 10 3)
 )";
+
+// TODO: extend to support more types
 
 // Result of Lisp parsing
 template <typename...>
@@ -110,6 +117,10 @@ namespace lisp {								// namespace lisp
 #define CHARS const metacpp::data::string <Chars...>
 #define CCHARS const metacpp::data::string <C, Chars...>
 
+// Fundamental types
+template <long int N>
+struct Int {};
+
 // Constructor for list types
 constexpr char impl_list_cstr[] = "list"; // Integer list
 using impl_list_str = metacpp::to_string_t <impl_list_cstr>;
@@ -148,6 +159,53 @@ struct impl_parse_list <CCHARS> {
 	using next = CHARS;
 };
 
+// Arithmetic operations
+enum class op_type {
+	plus,
+	minus,
+	multiply,
+	divide
+};
+
+template <op_type Op, typename>
+struct impl_op {};
+
+template <typename T>
+struct impl_op <op_type::plus, T> {
+	static constexpr int value = 0;
+};
+
+template <typename T>
+struct impl_op <op_type::multiply, T> {
+	static constexpr int value = 1;
+};
+
+template <typename T, T x, T ... Ts>
+struct impl_op <op_type::plus, metacpp::data::list <T, x, Ts...>> {
+	static constexpr T value = x + impl_op <
+		op_type::plus,
+		metacpp::data::list <T, Ts...>
+	> ::value;
+};
+
+template <typename T, T x, T ... Ts>
+struct impl_op <op_type::multiply, metacpp::data::list <T, x, Ts...>> {
+	static constexpr T value = x * impl_op <
+		op_type::multiply,
+		metacpp::data::list <T, Ts...>
+	> ::value;
+};
+
+template <typename T, T x, T y>
+struct impl_op <op_type::minus, metacpp::data::list <T, x, y>> {
+	static constexpr T value = x - y;
+};
+
+template <typename T, T x, T y>
+struct impl_op <op_type::divide, metacpp::data::list <T, x, y>> {
+	static constexpr T value = x / y;
+};
+
 // Function dispatcher
 template <typename T>
 requires metacpp::data::impl_is_string <T> ::value
@@ -164,6 +222,86 @@ struct impl_ftn_dispatcher <CCHARS> {
 
 	using next = typename impl_parse_list <impl_next_start> ::next;
 	using type = typename impl_parse_list <impl_next_start> ::type;
+};
+
+// Addition dispatcher (starts with '+')
+template <char ... Chars>
+requires metacpp::lang::match_char <'+', CHARS> ::success
+struct impl_ftn_dispatcher <CHARS> {
+	// NOTE: successfuly matched plus
+	using impl_next_start = typename impl_skip_whitespace <
+		typename metacpp::lang::match_char <'+', CHARS> ::next
+	> ::next;
+
+	using impl_current_type = typename impl_parse_list <impl_next_start> ::type;
+	static_assert(metacpp::size <impl_current_type> ::value > 0,
+		"Expected at least one argument to '+'"
+	);
+
+	static constexpr int value = impl_op <op_type::plus, impl_current_type> ::value;
+
+	using next = typename impl_parse_list <impl_next_start> ::next;
+	using type = Int <value>;
+};
+
+// Multiplication dispatcher (starts with '*')
+template <char... Chars>
+requires metacpp::lang::match_char <'*', CHARS> ::success
+struct impl_ftn_dispatcher <CHARS> {
+	// NOTE: successfuly matched plus
+	using impl_next_start = typename impl_skip_whitespace <
+		typename metacpp::lang::match_char <'*', CHARS> ::next
+	> ::next;
+
+	using impl_current_type = typename impl_parse_list <impl_next_start> ::type;
+	static_assert(metacpp::size <impl_current_type> ::value > 0,
+		"Expected at least one argument to '*'"
+	);
+
+	static constexpr int value = impl_op <op_type::multiply, impl_current_type> ::value;
+
+	using next = typename impl_parse_list <impl_next_start> ::next;
+	using type = Int <value>;
+};
+
+// Subtraction dispatcher (starts with '-')
+template <char... Chars>
+requires metacpp::lang::match_char <'-', CHARS> ::success
+struct impl_ftn_dispatcher <CHARS> {
+	// NOTE: successfuly matched plus
+	using impl_next_start = typename impl_skip_whitespace <
+		typename metacpp::lang::match_char <'-', CHARS> ::next
+	> ::next;
+
+	using impl_current_type = typename impl_parse_list <impl_next_start> ::type;
+	static_assert(metacpp::size <impl_current_type> ::value > 0,
+		"Expected two arguments to '-'"
+	);
+
+	static constexpr int value = impl_op <op_type::minus, impl_current_type> ::value;
+
+	using next = typename impl_parse_list <impl_next_start> ::next;
+	using type = Int <value>;
+};
+
+// Division dispatcher (starts with '/')
+template <char... Chars>
+requires metacpp::lang::match_char <'/', CHARS> ::success
+struct impl_ftn_dispatcher <CHARS> {
+	// NOTE: successfuly matched plus
+	using impl_next_start = typename impl_skip_whitespace <
+		typename metacpp::lang::match_char <'/', CHARS> ::next
+	> ::next;
+
+	using impl_current_type = typename impl_parse_list <impl_next_start> ::type;
+	static_assert(metacpp::size <impl_current_type> ::value > 0,
+		"Expected two arguments to '/'"
+	);
+
+	static constexpr int value = impl_op <op_type::divide, impl_current_type> ::value;
+
+	using next = typename impl_parse_list <impl_next_start> ::next;
+	using type = Int <value>;
 };
 
 // Expression dispatcher (starts with '(')

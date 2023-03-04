@@ -191,6 +191,9 @@ static constexpr bool is_string_v = data::impl_is_string <T> ::value;
 
 // Global namespace operations (methods)
 template <typename T>
+using size = data::impl_size <T>;
+
+template <typename T>
 static constexpr auto size_v = data::impl_size <T> ::value;
 
 template <typename T>

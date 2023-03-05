@@ -2,6 +2,7 @@
 
 // Standard headers
 #include <cstdint>
+#include <string>
 #include <string_view>
 #include <type_traits>
 
@@ -10,6 +11,16 @@ namespace metacpp {
 namespace data {
 
 // TODO: make lower case...
+
+// Generic list
+template <typename ... Values>
+struct generic_list {};
+
+template <typename A, typename ... Values>
+struct generic_list <A, Values...> {
+	using value = A;
+	using next = generic_list <Values...>;
+};
 
 // Statically typed list
 template <typename T, T ... Values>
@@ -56,6 +67,16 @@ struct to_string {
 // Indexing
 template <typename, int>
 struct impl_index {};
+
+template <int Index, typename A, typename ... Values>
+struct impl_index <generic_list <A, Values...>, Index> {
+	using type = typename impl_index <generic_list <Values...>, Index - 1> ::type;
+};
+
+template <typename A, typename ... Values>
+struct impl_index <generic_list <A, Values...>, 0> {
+	using type = A;
+};
 
 template <typename T, int Index, T x, T ... Values>
 struct impl_index <list <T, x, Values...>, Index> {
@@ -113,11 +134,16 @@ struct impl_erase_back <T, list <T, x, Values...>> {
 };
 
 // Concatenation
-template <typename T, typename, typename>
+template <typename, typename>
 struct impl_concat {};
 
+template <typename ... Values1, typename ... Values2>
+struct impl_concat <generic_list <Values1...>, generic_list <Values2...>> {
+	using type = generic_list <Values1..., Values2...>;
+};
+
 template <typename T, T ... Values1, T ... Values2>
-struct impl_concat <T, list <T, Values1...>, list <T, Values2...>> {
+struct impl_concat <list <T, Values1...>, list <T, Values2...>> {
 	using type = list <T, Values1..., Values2...>;
 };
 
@@ -125,6 +151,16 @@ struct impl_concat <T, list <T, Values1...>, list <T, Values2...>> {
 template <typename>
 struct impl_is_list {
 	static constexpr bool value = false;
+};
+
+template <typename ... Values>
+struct impl_is_list <generic_list <Values...>> {
+	static constexpr bool value = true;
+};
+
+template <typename ... Values>
+struct impl_is_list <const generic_list <Values...>> {
+	static constexpr bool value = true;
 };
 
 template <typename T, T ... Values>
@@ -152,6 +188,11 @@ template <typename T>
 requires impl_is_list <T> ::value
 struct impl_size {
 	static constexpr size_t value = 0;
+};
+
+template <typename ... Values>
+struct impl_size <generic_list <Values...>> {
+	static constexpr size_t value = sizeof...(Values);
 };
 
 template <typename T, T ... Values>
@@ -196,14 +237,22 @@ using size = data::impl_size <T>;
 template <typename T>
 static constexpr auto size_v = data::impl_size <T> ::value;
 
+// Empty check
 template <typename T>
 using is_empty = data::impl_is_empty <T>;
 
 template <typename T>
 constexpr bool is_empty_v = data::impl_is_empty <T> ::value;
 
+// Indexing
+template <typename T, int Index>
+using index = data::impl_index <T, Index>;
+
 template <typename T, int Index>
 static constexpr auto index_v = data::impl_index <T, Index> ::value;
+
+template <typename T, int Index>
+using index_t = typename data::impl_index <T, Index> ::type;
 
 // Methods
 template <typename T, typename U, T x>
@@ -230,8 +279,8 @@ using erase_back_t = typename data::impl_erase_back <T, U> ::type;
 template <typename T, typename U>
 constexpr T erase_back_v = erase_back <T, U> ::value;
 
-template <typename T, typename U, typename V>
-using concat_t = typename data::impl_concat <T, U, V> ::type;
+template <typename U, typename V>
+using concat_t = typename data::impl_concat <U, V> ::type;
 
 // Language utilities
 namespace lang {
@@ -279,6 +328,26 @@ struct match_string <const data::string <E, Es...>, const data::string <E, Chars
 		> ::next,
 		const data::string <E, Chars...>
 	>;
+};
+
+// Skipping whitespace
+template <typename T>
+requires data::impl_is_string <T> ::value
+struct match_whitespace {
+	static constexpr int removed = 0;
+	using next = T;
+};
+
+template <char C, char... Chars>
+requires (C == ' ' || C == '\t' || C == '\n')
+struct match_whitespace <const data::string <C, Chars...>> {
+	static constexpr int removed = 1 + match_whitespace <
+		const data::string <Chars...>
+	> ::removed;
+
+	using next = typename match_whitespace <
+		const data::string <Chars...>
+	> ::next;
 };
 
 // TODO: indicating failure?
@@ -344,6 +413,10 @@ template <typename F, typename B, char C, char ... Chars>
 struct impl_match_float <F, B, const data::string <C, Chars...>> {
 	using next = const data::string <C, Chars...>;
 
+	static constexpr bool dot() {
+		return false;
+	}
+
 	static constexpr F value(F accumulated) {
 		return accumulated;
 	}
@@ -360,6 +433,18 @@ struct impl_match_float <F, std::false_type, const data::string <C, Chars...>> {
 	// reading the decimal part of the float
 	using impl_rest = const data::string <Chars...>;
 	using next = typename impl_match_float <F, std::false_type, impl_rest> ::next;
+
+	static constexpr bool dot() {
+		if constexpr (sizeof...(Chars) > 0) {
+			if constexpr (C == '.') {
+				return true;
+			} else {
+				return impl_match_float <F, std::false_type, impl_rest> ::dot();
+			}
+		} else {
+			return false;
+		}
+	}
 
 	static constexpr F value(F accumulated = 0) {
 		// TODO: simplify this nested...
@@ -409,17 +494,20 @@ struct match_float <F, const data::string <C, Chars...>> {
 	using impl_parser = impl_match_float <F, std::false_type, const data::string <C, Chars...>>;
 	using next = typename impl_parser::next;
 
+	static constexpr bool dot = impl_parser::dot();
 	static constexpr F value() {
 		return impl_parser::value();
 	}
 };
 
+// WARNING: This allows for composed negative numbers, like --1
 template <typename F, char C, char ... Chars>
 requires (C == '-')
 struct match_float <F, const data::string <C, Chars...>> {
 	static constexpr bool success = match_float <F, const data::string <Chars...>> ::success;
 	using next = typename match_float <F, const data::string <Chars...>> ::next;
 
+	static constexpr bool dot = match_float <F, const data::string <Chars...>> ::dot();
 	static constexpr F value() {
 		return -match_float <F, const data::string <Chars...>> ::value();
 	}
@@ -502,6 +590,37 @@ struct match_list <T, Count, const data::string <Chars...>> {
 	using type = typename impl_list_parser::type;
 	using next = typename impl_list_parser::next;
 };
+
+}
+
+namespace io {
+
+// Printer
+template <typename>
+struct impl_printf {
+	static constexpr std::string value() {
+		return "";
+	}
+};
+
+// Printing generic lists
+template <typename T, typename ... Ts>
+struct impl_printf <data::generic_list <T, Ts...> > {
+	static std::string value() {
+		if constexpr (sizeof ... (Ts) == 0) {
+			return impl_printf <T> ::value();
+		} else {
+			return impl_printf <T> ::value() + ", "
+				+ impl_printf <data::generic_list <Ts...> > ::value();
+		}
+	}
+};
+
+// Printing wrapper
+template <typename T>
+std::string to_string() {
+	return impl_printf <T> ::value();
+}
 
 }
 

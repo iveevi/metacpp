@@ -100,36 +100,29 @@ using negative_float_str_type = metacpp::to_string_t <negative_float_str>;
 static_assert(metacpp::lang::match_float <float, negative_float_str_type> ::success);
 static_assert(metacpp::lang::match_float <float, negative_float_str_type> ::value() == -123.456f);
 
+// Edge cases
+constexpr char minus_sign[] = "-";
+using minus_sign_type = metacpp::to_string_t <minus_sign>;
+static_assert(!metacpp::lang::match_int <int, minus_sign_type> ::success);
+static_assert(!metacpp::lang::match_float <float, minus_sign_type> ::success);
+
 }
 
 // TODO: negative number parsing...
 // TODO: reduce compile time by avoiding concepts/requirements?
 // TODO: benchmark such cases...
 constexpr char lisp_source[] = R"(
-(* 1.05 2.77 3.4)
-(/ 10 3)
-(/ 100 25)
-(+ 45 6)
-(- 10.3 10)
+(list 1.05 2.77 (list 3.14 2.71) (+ 1 2) (- 3.5 (* 3 1.5)))
 )";
 
 using lisp_source_type = metacpp::to_string_t <lisp_source>;
 using results = typename lisp::eval_t <lisp_source_type>;
 
+// TODO: branching
+
 int main()
 {
-	test_lists::rt_main();
-
-	// TODO: printer...
-	printf("results: %s\n", typeid(results).name());
-	printf("result[0] (d): %ld\n", metacpp::index <results, 0> ::type::value);
-	printf("result[0] (f): %f\n", metacpp::index <results, 0> ::type::value);
-	printf("result[1] (d): %ld\n", metacpp::index <results, 1> ::type::value);
-	printf("result[1] (f): %f\n", metacpp::index <results, 1> ::type::value);
-	printf("result[2] (d): %ld\n", metacpp::index <results, 2> ::type::value);
-	printf("result[2] (f): %f\n", metacpp::index <results, 2> ::type::value);
-
+	// test_lists::rt_main();
 	printf("RESULTS: %s\n", metacpp::io::to_string <results> ().data());
-
 	return 0;
 }

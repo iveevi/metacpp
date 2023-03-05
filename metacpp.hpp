@@ -355,6 +355,7 @@ struct match_whitespace <const data::string <C, Chars...>> {
 // Reading integers from compile-time strings
 template <typename I, typename>
 struct match_int {
+	static constexpr bool success = false;
 	using next = const data::string <>;
 };
 
@@ -386,8 +387,9 @@ struct match_int <I, const data::string <C, Chars...>> {
 	}
 };
 
+// WARNING: Need to fix syntax like --1
 template <typename I, char C, char ... Chars>
-requires (C == '-')
+requires (C == '-') && match_int <I, const data::string <Chars...>> ::success
 struct match_int <I, const data::string <C, Chars...>> {
 	using impl_rest = const data::string <Chars...>;
 
@@ -401,7 +403,9 @@ struct match_int <I, const data::string <C, Chars...>> {
 
 // Reading floats from compile-time strings
 template <typename F, typename>
-struct match_float {};
+struct match_float {
+	static constexpr bool success = false;
+};
 
 template <typename F, typename, typename>
 requires std::is_floating_point_v <F>
@@ -502,7 +506,7 @@ struct match_float <F, const data::string <C, Chars...>> {
 
 // WARNING: This allows for composed negative numbers, like --1
 template <typename F, char C, char ... Chars>
-requires (C == '-')
+requires (C == '-') && match_float <F, const data::string <Chars...>> ::success
 struct match_float <F, const data::string <C, Chars...>> {
 	static constexpr bool success = match_float <F, const data::string <Chars...>> ::success;
 	using next = typename match_float <F, const data::string <Chars...>> ::next;
@@ -596,25 +600,32 @@ struct match_list <T, Count, const data::string <Chars...>> {
 namespace io {
 
 // Printer
-template <typename>
+template <typename...>
 struct impl_printf {
-	static constexpr std::string value() {
-		return "";
+	static std::string value() {
+		return "?";
 	}
 };
 
 // Printing generic lists
 template <typename T, typename ... Ts>
-struct impl_printf <data::generic_list <T, Ts...> > {
+struct impl_printf <T, Ts...> {
 	static std::string value() {
 		if constexpr (sizeof ... (Ts) == 0) {
 			return impl_printf <T> ::value();
 		} else {
 			return impl_printf <T> ::value() + ", "
-				+ impl_printf <data::generic_list <Ts...> > ::value();
+				+ impl_printf <Ts...> ::value();
 		}
 	}
 };
+
+template <typename T, typename ... Ts>
+struct impl_printf <data::generic_list <T, Ts...>> {
+	static std::string value() {
+		return "(" + impl_printf <T, Ts...> ::value() + ")";
+	}
+}; 
 
 // Printing wrapper
 template <typename T>

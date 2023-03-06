@@ -68,20 +68,20 @@ struct auto_type {
 	struct eFloat {};
 };
 
-template <typename...>
+template <typename>
 struct impl_auto_cast {
 	using type = auto_type::eInt;
 };
 
 template <long int X, typename ... Values>
-struct impl_auto_cast <Int <X>, Values...> {
+struct impl_auto_cast <metacpp::data::generic_list <Int <X>, Values...>> {
 	using type = typename impl_auto_cast <
 		metacpp::data::generic_list <Values...>
 	> ::type;
 };
 
 template <double X, typename ... Values>
-struct impl_auto_cast <Float <X>, Values...> {
+struct impl_auto_cast <metacpp::data::generic_list <Float <X>, Values...>> {
 	using type = auto_type::eFloat;
 };
 
@@ -110,7 +110,7 @@ struct impl_op <op_type::multiply, T> {
 
 // Addition with pure integers
 template <long int X, typename ... Ts>
-requires std::is_same <typename impl_auto_cast <Ts...> ::type, auto_type::eInt> ::value
+requires std::is_same <typename impl_auto_cast <metacpp::data::generic_list <Ts...>> ::type, auto_type::eInt> ::value
 struct impl_op <op_type::plus, metacpp::data::generic_list <Int <X>, Ts...>> {
 	static constexpr long int impl_value = X + impl_op <
 		op_type::plus,
@@ -136,7 +136,7 @@ struct impl_op <op_type::plus, metacpp::data::generic_list <T, Ts...>> {
 // Multiplication with pure integers
 template <long int X, typename ... Ts>
 // TODO: avoid the nesting...						over here!
-requires std::is_same <typename impl_auto_cast <Ts...> ::type, auto_type::eInt> ::value
+requires std::is_same <typename impl_auto_cast <metacpp::data::generic_list <Ts...>> ::type, auto_type::eInt> ::value
 struct impl_op <op_type::multiply, metacpp::data::generic_list <Int <X>, Ts...>> {
 	static constexpr long int impl_value = X * impl_op <
 		op_type::multiply,

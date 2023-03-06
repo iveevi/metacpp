@@ -120,6 +120,19 @@ using results = typename lisp::eval_t <lisp_source_type>;
 
 // TODO: branching
 
+#include <array>
+
+template <size_t Na, size_t Nb>
+constexpr int strcmp(const std::array <char, Na> &a, const std::array <char, Nb> &b)
+{
+	for (size_t i = 0; i < Na && i < Nb; i++) {
+		if (a[i] != b[i])
+			return a[i] - b[i];
+	}
+
+	return Na - Nb;
+}
+
 int main()
 {
 	// test_lists::rt_main();

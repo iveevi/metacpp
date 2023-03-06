@@ -13,5 +13,7 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
+    - name: dependencies
+      run: sudo apt install gcc-12
     - name: make
       run: make run

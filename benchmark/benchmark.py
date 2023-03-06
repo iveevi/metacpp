@@ -8,14 +8,16 @@ import seaborn as sns
 import subprocess
 
 programs = [
-    {'name': 'v1', 'dir' : 'lisp_raw', 'source' : 'main.cpp'},
-    {'name' : 'current', 'dir': '..', 'source' : 'lisp_main.cpp'},
+    {'name': 'v1', 'dir' : 'v1', 'source' : 'main.cpp'},
+    {'name' : 'current', 'dir': 'current', 'source' : 'main.cpp'},
 ]
 
 subsources = {
     'list' : 5 * '(list 1 2 3 4 5 6 7 8 9 10)',
-    'sum_ii' : 5 * '(+ 1 2 3 4 5 6 7 8 9 10)',
-    'prod_ii' : 5 * '(* 1 2 3 4 5 6 7 8 9 10)'
+    'sum_hi' : 5 * '(+ 1 2 3 4 5 6 7 8 9 10)',
+    'prod_hi' : 5 * '(* 1 2 3 4 5 6 7 8 9 10)',
+    'sum_if' : 5 * '(+ 1 2 3.7 4 5 6.99 7 8.31 9 10.1)',
+    'prod_if' : 5 * '(* 1 2 3 4.3 5.5435 6 7 8 9.54 10)'
 }
 
 def get_field(fields, name):
@@ -28,7 +30,7 @@ def get_benchmark_statistics(program, source):
     source = '-DLISP_SOURCE="\\"' + source + '\\""'
     cmd = [
         '/bin/time', '-v', 'g++', '-std=c++20',
-        '-I', '..', source, program['dir'] + '/' + program['source'],
+        '-I', program['dir'], source, program['dir'] + '/' + program['source'],
         '-o', program['dir'] + '/main'
     ]
 
@@ -47,8 +49,8 @@ def get_benchmark_statistics(program, source):
 
     return user_time, max_rss
 
-max_chars = 2000
-process_iterations = 10
+max_chars = 500
+process_iterations = 1
 data = {}
 
 for subsource_type, subsource in subsources.items():
@@ -82,6 +84,7 @@ print(data)
 
 # Plotting
 sns.set()
+sns.set_style('darkgrid')
 
 # Create the time plots
 ax_times = []

@@ -1,5 +1,5 @@
 #include "metacpp.hpp"
-#include "lisp.hpp"
+// #include "lisp.hpp"
 
 #include <stdio.h>
 #include <typeinfo>
@@ -64,7 +64,67 @@ static_assert(
 
 }
 
-namespace test_lang {
+namespace test_lang_string {
+
+constexpr char str[] = "abc abc";
+constexpr char match_str1[] = "abc";
+constexpr char match_str2[] = "a";
+constexpr char match_str3[] = "d";
+
+using str_type = metacpp::to_string_t <str>;
+using match_str_type1 = metacpp::to_string_t <match_str1>;
+using match_str_type2 = metacpp::to_string_t <match_str2>;
+using match_str_type3 = metacpp::to_string_t <match_str3>;
+
+static_assert(metacpp::lang::match_char <str_type, 'a'> ::success);
+static_assert(metacpp::lang::match_char <str_type, 'a'> ::next == 1);
+
+static_assert(metacpp::lang::match_char <str_type, 'b', 1> ::success);
+static_assert(metacpp::lang::match_char <str_type, 'b', 1> ::next == 2);
+
+static_assert(metacpp::index <str_type, 0> ::value == 'a'
+	&& metacpp::index <match_str_type1, 0> ::value == 'a');
+
+static_assert(metacpp::index <str_type, 1> ::value == 'b'
+	&& metacpp::index <match_str_type1, 1> ::value == 'b');
+
+static_assert(metacpp::index <str_type, 2> ::value == 'c'
+	&& metacpp::index <match_str_type1, 2> ::value == 'c');
+
+static_assert(metacpp::lang::match_string <str_type, match_str_type1> ::success);
+static_assert(metacpp::lang::match_string <str_type, match_str_type1> ::next == 3);
+
+static_assert(metacpp::lang::match_string <str_type, match_str_type2> ::success);
+static_assert(metacpp::lang::match_string <str_type, match_str_type2> ::next == 1);
+
+static_assert(!metacpp::lang::match_string <str_type, match_str_type3> ::success);
+static_assert(metacpp::lang::match_string <str_type, match_str_type3> ::next == 0);
+
+}
+
+namespace test_lang_whitespace {
+
+constexpr char str[] = R"(
+	abc
+	abc
+)";
+
+using str_type = metacpp::to_string_t <str>;
+
+static_assert(metacpp::lang::match_whitespace <str_type> ::removed == 2);
+static_assert(metacpp::lang::match_whitespace <str_type> ::next == 2);
+
+static_assert(metacpp::index <str_type, 5> ::value == '\n');
+static_assert(metacpp::lang::match_whitespace <str_type, 4> ::removed == 0);
+static_assert(metacpp::lang::match_whitespace <str_type, 5> ::removed == 2);
+
+static_assert(metacpp::index <str_type, 10> ::value == '\n');
+static_assert(metacpp::lang::match_whitespace <str_type, 9> ::removed == 0);
+static_assert(metacpp::lang::match_whitespace <str_type, 10> ::removed == 1);
+
+}
+
+namespace test_lang_numeric {
 
 constexpr char int_str[] = "123";
 
@@ -74,68 +134,117 @@ static_assert(metacpp::is_string <int_str_type> ::value);
 static_assert(metacpp::is_list <int_str_type> ::value);
 
 // Integer parsing
-static_assert(metacpp::lang::match_int <int, int_str_type> ::success);
-static_assert(metacpp::lang::match_int <int, int_str_type> ::value() == 123);
+static_assert(metacpp::lang::match_int <int_str_type, int> ::success);
+static_assert(metacpp::lang::match_int <int_str_type, int> ::value() == 123);
 
-// Making sure that the next type is empty
-using int_str_next_type = metacpp::lang::match_int <int, int_str_type> ::next;
-static_assert(metacpp::is_empty <int_str_next_type> ::value);
+// Making sure that the next index is correct
+static_assert(metacpp::lang::match_int <int_str_type, int> ::next == 3);
 
 // Negative integer parsing
 constexpr char negative_int_str[] = "-123";
 using negative_int_str_type = metacpp::to_string_t <negative_int_str>;
-static_assert(metacpp::lang::match_int <int, negative_int_str_type> ::success);
-static_assert(metacpp::lang::match_int <int, negative_int_str_type> ::value() == -123);
+static_assert(metacpp::lang::match_int <negative_int_str_type, int> ::success);
+static_assert(metacpp::lang::match_int <negative_int_str_type, int> ::value() == -123);
 
 // Float parsing
 constexpr char float_str[] = "123.456";
 using float_str_type = metacpp::to_string_t <float_str>;
-static_assert(metacpp::lang::match_float <float, float_str_type> ::success);
-static_assert(metacpp::lang::match_float <float, float_str_type> ::dot);
-static_assert(metacpp::lang::match_float <float, float_str_type> ::value() == 123.456f);
+static_assert(metacpp::lang::match_float <float_str_type, float> ::success);
+static_assert(metacpp::lang::match_float <float_str_type, float> ::dot);
+static_assert(metacpp::lang::match_float <float_str_type, float> ::value() == 123.456f);
 
 // Negative float parsing
 constexpr char negative_float_str[] = "-123.456";
 using negative_float_str_type = metacpp::to_string_t <negative_float_str>;
-static_assert(metacpp::lang::match_float <float, negative_float_str_type> ::success);
-static_assert(metacpp::lang::match_float <float, negative_float_str_type> ::value() == -123.456f);
+static_assert(metacpp::lang::match_float <negative_float_str_type, float> ::success);
+static_assert(metacpp::lang::match_float <negative_float_str_type, float> ::value() == -123.456f);
 
 // Edge cases
 constexpr char minus_sign[] = "-";
 using minus_sign_type = metacpp::to_string_t <minus_sign>;
-static_assert(!metacpp::lang::match_int <int, minus_sign_type> ::success);
-static_assert(!metacpp::lang::match_float <float, minus_sign_type> ::success);
+static_assert(!metacpp::lang::match_int <minus_sign_type, int> ::success);
+static_assert(!metacpp::lang::match_float <minus_sign_type, float> ::success);
+
+constexpr char double_minus_sign[] = "--5";
+using double_minus_sign_type = metacpp::to_string_t <double_minus_sign>;
+static_assert(!metacpp::lang::match_int <double_minus_sign_type, int> ::success);
+static_assert(!metacpp::lang::match_float <double_minus_sign_type, float> ::success);
 
 }
 
-// TODO: negative number parsing...
-// TODO: reduce compile time by avoiding concepts/requirements?
-// TODO: benchmark such cases...
+namespace test_lang_list {
+
+constexpr char int_list_str[] = "1,23,456,7890";
+using int_list_str_type = metacpp::to_string_t <int_list_str>;
+using int_list_expected = metacpp::data::list <int, 1, 23, 456, 7890>;
+static_assert(metacpp::lang::match_list <int_list_str_type, int, 4> ::success);
+static_assert(metacpp::lang::match_list <int_list_str_type, int, 4> ::next == sizeof(int_list_str) - 1);
+static_assert(std::is_same <
+	metacpp::lang::match_list <int_list_str_type, int, 4> ::type,
+	int_list_expected
+> ::value);
+
+constexpr char float_list_str[] = "1,23,456,7890";
+using float_list_str_type = metacpp::to_string_t <float_list_str>;
+using float_list_expected = metacpp::data::list <float, 1.0f, 23.0f, 456.0f, 7890.0f>;
+static_assert(metacpp::lang::match_list <float_list_str_type, float, 4> ::success);
+static_assert(metacpp::lang::match_list <float_list_str_type, float, 4> ::next == sizeof(float_list_str) - 1);
+static_assert(std::is_same <
+	metacpp::lang::match_list <float_list_str_type, float, 4> ::type,
+	float_list_expected
+> ::value);
+
+constexpr char single_list_str[] = "1";
+using single_list_str_type = metacpp::to_string_t <single_list_str>;
+using single_list_expected = metacpp::data::list <int, 1> ;
+static_assert(metacpp::lang::match_list <single_list_str_type, int, 1> ::success);
+static_assert(metacpp::lang::match_list <single_list_str_type, int, 1> ::next == 1);
+static_assert(std::is_same <
+	metacpp::lang::match_list <single_list_str_type, int, 1> ::type,
+	single_list_expected
+> ::value);
+
+constexpr char forever_list_str[] = "1,2,3,4,5,6,7,8,9";
+using forever_list_str_type = metacpp::to_string_t <forever_list_str>;
+using forever_list_expected = metacpp::data::list <int, 1, 2, 3, 4, 5, 6, 7, 8, 9> ;
+static_assert(metacpp::lang::match_list <forever_list_str_type, int, -1> ::success);
+static_assert(metacpp::lang::match_list <forever_list_str_type, int, -1> ::next == sizeof(forever_list_str) - 1);
+static_assert(std::is_same <
+	metacpp::lang::match_list <forever_list_str_type, int, -1> ::type,
+	forever_list_expected
+> ::value);
+
+void rt_main()
+{
+	std::string int_list_s;
+	std::string float_list_s;
+	std::string single_list_s;
+	std::string forever_list_s = metacpp::io::to_string <
+		metacpp::lang::match_list <forever_list_str_type, int, -1> ::type
+	> ();
+
+	printf("int_list_s: %s\n", int_list_s.c_str());
+	printf("float_list_s: %s\n", float_list_s.c_str());
+	printf("single_list_s: %s\n", single_list_s.c_str());
+	printf("forever_list_s: %s\n", forever_list_s.c_str());
+}
+
+}
+
+/*
 constexpr char lisp_source[] = R"(
 (list 1.05 2.77 (list 3.14 2.71) (+ 1 2) (- 3.5 (* 3 1.5)))
 )";
 
 using lisp_source_type = metacpp::to_string_t <lisp_source>;
-using results = typename lisp::eval_t <lisp_source_type>;
+using results = typename lisp::eval_t <lisp_source_type>; */
 
 // TODO: branching
 
-#include <array>
-
-template <size_t Na, size_t Nb>
-constexpr int strcmp(const std::array <char, Na> &a, const std::array <char, Nb> &b)
-{
-	for (size_t i = 0; i < Na && i < Nb; i++) {
-		if (a[i] != b[i])
-			return a[i] - b[i];
-	}
-
-	return Na - Nb;
-}
-
 int main()
 {
-	// test_lists::rt_main();
-	printf("RESULTS: %s\n", metacpp::io::to_string <results> ().data());
+	test_lang_list::rt_main();
+	/* test_lists::rt_main();
+	printf("RESULTS: %s\n", metacpp::io::to_string <results> ().data()); */
 	return 0;
 }

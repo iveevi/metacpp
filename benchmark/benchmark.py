@@ -50,7 +50,7 @@ def get_benchmark_statistics(program, source):
     return user_time, max_rss
 
 max_chars = 500
-process_iterations = 1
+process_iterations = 3
 data = {}
 
 for subsource_type, subsource in subsources.items():

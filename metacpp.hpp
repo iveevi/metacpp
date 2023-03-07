@@ -418,8 +418,8 @@ public:
 // TODO: indicating failure?
 
 // Reading integers from compile-time strings
-template <typename, typename I, int Index = 0, bool _Start = true>
-requires std::is_arithmetic <I> ::value
+template <typename S, typename I, int Index = 0, bool _Start = true>
+requires (is_string <S> ::value && std::is_arithmetic <I> ::value)
 struct match_int {
 	static constexpr bool success = false;
 	static constexpr int next = Index;
@@ -482,8 +482,8 @@ public:
 };
 
 // Reading floats from compile-time strings
-template <typename, typename F, int Index = 0, bool _Start = true, bool _Dot = false>
-requires std::is_arithmetic <F> ::value
+template <typename S, typename F, int Index = 0, bool _Start = true, bool _Dot = false>
+requires (is_string <S> ::value && std::is_arithmetic <F> ::value)
 struct match_float {
 	static constexpr bool success = false;
 	static constexpr int next = Index;
@@ -729,25 +729,28 @@ struct impl_printf {
 	}
 };
 
-/* Printing generic lists
+// Printing generic lists
 template <typename T, typename ... Ts>
-struct impl_printf <T, Ts...> {
+struct impl_printf <data::generic_list <T, Ts...>> {
+	static std::string impl_value() {
+		std::string result = impl_printf <T> ::value();
+		if constexpr (sizeof ... (Ts) == 0)
+			return result;
+		else
+			return result + ", " + impl_printf <data::generic_list <Ts...>> ::impl_value();
+	}
+
 	static std::string value() {
-		if constexpr (sizeof ... (Ts) == 0) {
-			return impl_printf <T> ::value();
-		} else {
-			return impl_printf <T> ::value() + ", "
-				+ impl_printf <Ts...> ::value();
-		}
+		return "(" + impl_value() + ")";
 	}
 };
 
-template <typename T, typename ... Ts>
-struct impl_printf <data::generic_list <T, Ts...>> {
+template <>
+struct impl_printf <data::generic_list <>> {
 	static std::string value() {
-		return "(" + impl_printf <T, Ts...> ::value() + ")";
+		return "()";
 	}
-}; */
+};
 
 // Printing type restricted lists
 template <typename T, T x, T ... Ts>

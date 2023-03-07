@@ -1,5 +1,5 @@
 #include "metacpp.hpp"
-// #include "lisp.hpp"
+#include "lisp.hpp"
 
 #include <stdio.h>
 #include <typeinfo>
@@ -231,20 +231,18 @@ void rt_main()
 
 }
 
-/*
 constexpr char lisp_source[] = R"(
 (list 1.05 2.77 (list 3.14 2.71) (+ 1 2) (- 3.5 (* 3 1.5)))
 )";
 
 using lisp_source_type = metacpp::to_string_t <lisp_source>;
-using results = typename lisp::eval_t <lisp_source_type>; */
+using results = typename lisp::eval_t <lisp_source_type>;
 
 // TODO: branching
 
 int main()
 {
 	test_lang_list::rt_main();
-	/* test_lists::rt_main();
-	printf("RESULTS: %s\n", metacpp::io::to_string <results> ().data()); */
+	printf("RESULTS: %s\n", metacpp::io::to_string <results> ().data());
 	return 0;
 }

@@ -6,7 +6,6 @@
 namespace lisp {								// namespace lisp
 
 #define CHARS const metacpp::data::string <Chars...>
-#define CCHARS const metacpp::data::string <C, Chars...>
 
 // Fundamental types
 template <long int X>
@@ -20,46 +19,47 @@ struct Float {
 };
 
 // Default function dispatcher
-template <typename T>
+template <typename T, int Index>
 requires metacpp::data::impl_is_string <T> ::value
 struct impl_ftn_dispatcher {
 	static constexpr bool success = false;
+	static constexpr int next = Index;
 };
 
 // Constructor for list types
-constexpr char impl_list_cstr[] = "list"; // Integer list
+constexpr char impl_list_cstr[] = "list";
 using impl_list_str = metacpp::to_string_t <impl_list_cstr>;
 
-template <typename T>
-using impl_list_matcher = metacpp::lang::match_string <impl_list_str, T>;
+// template <typename T>
+// using impl_list_matcher = metacpp::lang::match_string <impl_list_str, T>;
 
 // Parse list
-template <typename>
+template <typename, int>
 struct impl_parse_list {};
 
-template <char... Chars>
-requires (impl_ftn_dispatcher <CHARS> ::success)
-struct impl_parse_list <CHARS> {
+template <char... Chars, int Index>
+requires (impl_ftn_dispatcher <CHARS, Index> ::success)
+struct impl_parse_list <CHARS, Index> {
 	// Skip whitespace
-	using impl_next_start = typename metacpp::lang::match_whitespace <
-		typename impl_ftn_dispatcher <CHARS> ::next
+	static constexpr int impl_next_start = metacpp::lang::match_whitespace <
+		CHARS, impl_ftn_dispatcher <CHARS, Index> ::next
 	> ::next;
 
-	using impl_current_type = typename impl_ftn_dispatcher <CHARS> ::type;
+	using impl_current_type = typename impl_ftn_dispatcher <CHARS, Index> ::type;
 
-	using next = typename impl_parse_list <impl_next_start> ::next;
+	static constexpr int next = impl_parse_list <CHARS, impl_next_start> ::next;
 	using type = metacpp::concat_t <
 		impl_current_type,
-		typename impl_parse_list <impl_next_start> ::type
+		typename impl_parse_list <CHARS, impl_next_start> ::type
 	>;
 };
 
 // Until we reach the end of the list (e.g. ')')
-template <char C, char... Chars>
-requires (C == ')')
-struct impl_parse_list <CCHARS> {
+template <char... Chars, int Index>
+requires (metacpp::lang::match_char <CHARS, ')', Index> ::success)
+struct impl_parse_list <CHARS, Index> {
+	static constexpr int next = Index + 1;
 	using type = metacpp::data::generic_list <>;
-	using next = CHARS;
 };
 
 // Auto type casting
@@ -192,192 +192,187 @@ struct impl_op <op_type::divide, metacpp::data::generic_list <X, Y>> {
 };
 
 // List dispatcher (starts with 'list')
-template <char C, char... Chars>
-requires impl_list_matcher <CCHARS> ::success
-struct impl_ftn_dispatcher <CCHARS> {
+template <char... Chars, int Index>
+requires (metacpp::lang::match_string <CHARS, impl_list_str, Index> ::success)
+// requires impl_list_matcher <CHARS> ::success
+struct impl_ftn_dispatcher <CHARS, Index> {
 	// NOTE: successfuly matched list
-	using impl_next_start = typename metacpp::lang::match_whitespace <
-		typename impl_list_matcher <CCHARS> ::next
+	static constexpr int impl_next_start = metacpp::lang::match_whitespace <
+		CHARS, metacpp::lang::match_string <CHARS, impl_list_str, Index> ::next
 	> ::next;
 
-	using next = typename impl_parse_list <impl_next_start> ::next;
-	using type = typename impl_parse_list <impl_next_start> ::type;
+	static constexpr int next = impl_parse_list <CHARS, impl_next_start> ::next;
+	using type = typename impl_parse_list <CHARS, impl_next_start> ::type;
 
 	static constexpr bool success = true;
 };
 
 // Addition dispatcher (starts with '+')
-template <char ... Chars>
-requires metacpp::lang::match_char <'+', CHARS> ::success
-struct impl_ftn_dispatcher <CHARS> {
+template <char ... Chars, int Index>
+requires metacpp::lang::match_char <CHARS, '+', Index> ::success
+struct impl_ftn_dispatcher <CHARS, Index> {
 	// NOTE: successfuly matched plus
-	using impl_next_start = typename metacpp::lang::match_whitespace <
-		typename metacpp::lang::match_char <'+', CHARS> ::next
-	> ::next;
+	static constexpr int impl_next_start = metacpp::lang::match_whitespace
+		<CHARS, Index + 1> ::next;
 
-	using impl_current_type = typename impl_parse_list <impl_next_start> ::type;
+	using impl_current_type = typename impl_parse_list <CHARS, impl_next_start> ::type;
 	static_assert(metacpp::size <impl_current_type> ::value > 0,
 		"Expected at least one argument to '+'"
 	);
 
-	using next = typename impl_parse_list <impl_next_start> ::next;
+	static constexpr int next = impl_parse_list <CHARS, impl_next_start> ::next;
 	using type = typename impl_op <op_type::plus, impl_current_type> ::type;
 
 	static constexpr bool success = true;
 };
 
 // Multiplication dispatcher (starts with '*')
-template <char... Chars>
-requires metacpp::lang::match_char <'*', CHARS> ::success
-struct impl_ftn_dispatcher <CHARS> {
+template <char... Chars, int Index>
+requires metacpp::lang::match_char <CHARS, '*', Index> ::success
+struct impl_ftn_dispatcher <CHARS, Index> {
 	// NOTE: successfuly matched plus
-	using impl_next_start = typename metacpp::lang::match_whitespace <
-		typename metacpp::lang::match_char <'*', CHARS> ::next
-	> ::next;
+	static constexpr int impl_next_start = metacpp::lang::match_whitespace
+		<CHARS, Index + 1> ::next;
 
-	using impl_current_type = typename impl_parse_list <impl_next_start> ::type;
+	using impl_current_type = typename impl_parse_list <CHARS, impl_next_start> ::type;
 	static_assert(metacpp::size <impl_current_type> ::value > 0,
 		"Expected at least one argument to '*'"
 	);
 
-	using next = typename impl_parse_list <impl_next_start> ::next;
+	static constexpr int next = impl_parse_list <CHARS, impl_next_start> ::next;
 	using type = typename impl_op <op_type::multiply, impl_current_type> ::type;
 
 	static constexpr bool success = true;
 };
 
 // Subtraction dispatcher (starts with '-')
-template <char... Chars>
-requires metacpp::lang::match_char <'-', CHARS> ::success
-struct impl_ftn_dispatcher <CHARS> {
+template <char... Chars, int Index>
+requires metacpp::lang::match_char <CHARS, '-', Index> ::success
+struct impl_ftn_dispatcher <CHARS, Index> {
 	// NOTE: successfuly matched plus
-	using impl_next_start = typename metacpp::lang::match_whitespace <
-		typename metacpp::lang::match_char <'-', CHARS> ::next
-	> ::next;
+	static constexpr int impl_next_start = metacpp::lang::match_whitespace
+		<CHARS, Index + 1> ::next;
 
-	using impl_current_type = typename impl_parse_list <impl_next_start> ::type;
+	using impl_current_type = typename impl_parse_list <CHARS, impl_next_start> ::type;
 	static_assert(metacpp::size <impl_current_type> ::value == 2,
 		"Expected two arguments to '-'"
 	);
 
-	using next = typename impl_parse_list <impl_next_start> ::next;
+	static constexpr int next = impl_parse_list <CHARS, impl_next_start> ::next;
 	using type = typename impl_op <op_type::minus, impl_current_type> ::type;
 
 	static constexpr bool success = true;
 };
 
 // Division dispatcher (starts with '/')
-template <char... Chars>
-requires metacpp::lang::match_char <'/', CHARS> ::success
-struct impl_ftn_dispatcher <CHARS> {
+template <char... Chars, int Index>
+requires metacpp::lang::match_char <CHARS, '/', Index> ::success
+struct impl_ftn_dispatcher <CHARS, Index> {
 	// NOTE: successfuly matched plus
-	using impl_next_start = typename metacpp::lang::match_whitespace <
-		typename metacpp::lang::match_char <'/', CHARS> ::next
-	> ::next;
+	static constexpr int impl_next_start = metacpp::lang::match_whitespace
+		<CHARS, Index + 1> ::next;
 
-	using impl_current_type = typename impl_parse_list <impl_next_start> ::type;
+	using impl_current_type = typename impl_parse_list <CHARS, impl_next_start> ::type;
 	static_assert(metacpp::size <impl_current_type> ::value == 2,
 		"Expected two arguments to '/'"
 	);
 
-	using next = typename impl_parse_list <impl_next_start> ::next;
+	static constexpr int next = impl_parse_list <CHARS, impl_next_start> ::next;
 	using type = typename impl_op <op_type::divide, impl_current_type> ::type;
 
 	static constexpr bool success = true;
 };
 
 // Expression dispatcher (starts with '(')
-template <char C, char... Chars>
-requires (C == '(')
-struct impl_ftn_dispatcher <CCHARS> {
-	using impl_next_start = typename metacpp::lang::match_whitespace <
-		CHARS
-	> ::next;
+template <char... Chars, int Index>
+requires (metacpp::lang::match_char <CHARS, '(', Index> ::success)
+struct impl_ftn_dispatcher <CHARS, Index> {
+	static constexpr int impl_next_start = metacpp::lang::match_whitespace
+		<CHARS, Index + 1> ::next;
 
-	using next = typename impl_ftn_dispatcher <impl_next_start> ::next;
+	static constexpr int next = impl_ftn_dispatcher <CHARS, impl_next_start> ::next;
 	using type = metacpp::data::generic_list <
-		typename impl_ftn_dispatcher <impl_next_start> ::type
+		typename impl_ftn_dispatcher <CHARS, impl_next_start> ::type
 	>;
 
 	static constexpr bool success = true;
 };
 
 // Integer dispatcher
-template <char... Chars>
-requires (metacpp::lang::match_float <double, CHARS> ::success
-	&& !metacpp::lang::match_float <double, CHARS> ::dot)
-struct impl_ftn_dispatcher <CHARS> {
+template <char... Chars, int Index>
+requires (metacpp::lang::match_float <CHARS, double, Index> ::success
+	&& !metacpp::lang::match_float <CHARS, double, Index> ::dot)
+struct impl_ftn_dispatcher <CHARS, Index> {
 	// Skip whitespace
-	using next = typename metacpp::lang::match_whitespace <
-		typename metacpp::lang::match_int <int, CHARS> ::next
+	static constexpr int next = metacpp::lang::match_whitespace <
+		CHARS, metacpp::lang::match_int <CHARS, int,Index> ::next
 	> ::next;
 
 	using type = metacpp::data::generic_list <
-		Int <metacpp::lang::match_int <int, CHARS> ::value()>
+		Int <metacpp::lang::match_int <CHARS, int, Index> ::value()>
 	>;
 
 	static constexpr bool success = true;
 };
 
 // Read float when there is a dot
-template <char... Chars>
-requires (metacpp::lang::match_float <double, CHARS> ::success
-	&& metacpp::lang::match_float <double, CHARS> ::dot)
-struct impl_ftn_dispatcher <CHARS> {
+template <char... Chars, int Index>
+requires (metacpp::lang::match_float <CHARS, double,Index> ::success
+	&& metacpp::lang::match_float <CHARS, double, Index> ::dot)
+struct impl_ftn_dispatcher <CHARS, Index> {
 	// Skip whitespace
-	using next = typename metacpp::lang::match_whitespace <
-		typename metacpp::lang::match_float <double, CHARS> ::next
+	static constexpr int next = metacpp::lang::match_whitespace <
+		CHARS, metacpp::lang::match_float <CHARS, double, Index> ::next
 	> ::next;
 
 	using type = metacpp::data::generic_list <
-		Float <metacpp::lang::match_float <double, CHARS> ::value()>
+		Float <metacpp::lang::match_float <CHARS, double, Index> ::value()>
 	>;
 
 	static constexpr bool success = true;
 };
 
-// Check if a string is non-whitespace
-template <typename T>
-requires metacpp::data::impl_is_string <T> ::value
+template <int Index, char ... Chars>
 struct impl_is_non_whitespace {
-	static constexpr bool value = false;
-};
+	static constexpr auto impl_array = std::array <bool, sizeof...(Chars)> {
+		(Chars == ' ' || Chars == '\t' || Chars == '\n')...
+	};
 
-template <char C, char... Chars>
-requires (C != ' ' && C != '\t' && C != '\n')
-struct impl_is_non_whitespace <CCHARS> {
-	static constexpr bool value = true;
-};
+	static constexpr bool impl_value() {
+		for (int i = Index; i < sizeof...(Chars); i++) {
+			if (!impl_array[i])
+				return true;
+		}
 
-template <char C, char... Chars>
-requires (C == ' ' || C == '\t' || C == '\n')
-struct impl_is_non_whitespace <CCHARS> {
-	static constexpr bool value = impl_is_non_whitespace <CHARS> ::value;
+		return false;
+	}
+
+	static constexpr bool value = impl_value();
 };
 
 // Final dispatcher (starts at beginning of string)
-template <typename>
+template <typename, int>
 struct eval {
 	using type = metacpp::data::generic_list <>;
 };
 
-template <char... Chars>
-requires impl_is_non_whitespace <CHARS> ::value
-struct eval <CHARS> {
-	using impl_next_start = typename metacpp::lang::match_whitespace <CHARS> ::next;
-	using impl_current_type = typename impl_ftn_dispatcher <impl_next_start> ::type;
-	using impl_after_current = typename impl_ftn_dispatcher <impl_next_start> ::next;
+template <char... Chars, int Index>
+requires impl_is_non_whitespace <Index, Chars...> ::value
+struct eval <CHARS, Index> {
+	static constexpr int impl_next_start = metacpp::lang::match_whitespace <CHARS, Index> ::next;
+	using impl_current_type = typename impl_ftn_dispatcher <CHARS, impl_next_start> ::type;
+	static constexpr int impl_after_current = impl_ftn_dispatcher <CHARS, impl_next_start> ::next;
 
 	using type = metacpp::concat_t <
 		impl_current_type,
-		typename eval <impl_after_current> ::type
+		typename eval <CHARS, impl_after_current> ::type
 	>;
 
 	// NOTE: no next, since we expect to parse the entire string
 };
 
-template <typename T>
-using eval_t = typename eval <T> ::type;
+template <typename T, int Index = 0>
+using eval_t = typename eval <T, Index> ::type;
 
 }										// namespace lisp
 
@@ -389,7 +384,7 @@ namespace metacpp::io {
 template <long int X>
 struct impl_printf <lisp::Int <X>> {
 	static std::string value() {
-		return std::to_string(X);
+		return std::to_string(X) + "I";
 	}
 };
 
@@ -397,7 +392,7 @@ struct impl_printf <lisp::Int <X>> {
 template <double X>
 struct impl_printf <lisp::Float <X>> {
 	static std::string value() {
-		return std::to_string(X);
+		return std::to_string(X) + "F";
 	}
 };
 

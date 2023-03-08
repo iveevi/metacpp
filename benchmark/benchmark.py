@@ -9,7 +9,7 @@ import subprocess
 
 programs = [
     {'name': 'v1', 'dir' : 'v1', 'source' : 'main.cpp'},
-    {'name' : 'current', 'dir': 'current', 'source' : 'main.cpp'},
+    {'name' : 'v2', 'dir': 'v2', 'source' : 'main.cpp'},
 ]
 
 subsources = {
@@ -17,7 +17,9 @@ subsources = {
     'sum_hi' : 5 * '(+ 1 2 3 4 5 6 7 8 9 10)',
     'prod_hi' : 5 * '(* 1 2 3 4 5 6 7 8 9 10)',
     'sum_if' : 5 * '(+ 1 2 3.7 4 5 6.99 7 8.31 9 10.1)',
-    'prod_if' : 5 * '(* 1 2 3 4.3 5.5435 6 7 8 9.54 10)'
+    'prod_if' : 5 * '(* 1 2 3 4.3 5.5435 6 7 8 9.54 10)',
+    'raw_i' : 5 * '1 2 3 4 5 6 7 8 9 10',
+    'raw_f' : 5 * '1.1 2.2 3.3 4.4 5.5 6.6 7.7 8.8 9.9 10.1',
 }
 
 def get_field(fields, name):

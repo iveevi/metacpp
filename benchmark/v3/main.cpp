@@ -6,8 +6,8 @@
 #endif
 
 constexpr char lisp_source[] = LISP_SOURCE;
-using lisp_source_type = metacpp::to_string_t <lisp_source>;
-using results = typename lisp::eval_t <lisp_source_type>;
+constexpr metacpp::data::constexpr_string lisp_source_str(lisp_source, sizeof(lisp_source) - 1);
+using results = typename lisp::eval_t <lisp_source_str>;
 
 int main()
 {

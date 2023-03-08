@@ -10,6 +10,7 @@ import subprocess
 programs = [
     {'name': 'v1', 'dir' : 'v1', 'source' : 'main.cpp'},
     {'name' : 'v2', 'dir': 'v2', 'source' : 'main.cpp'},
+    {'name' : 'v3', 'dir': 'v3', 'source' : 'main.cpp'},
 ]
 
 subsources = {
@@ -90,8 +91,9 @@ sns.set_style('darkgrid')
 
 # Create the time plots
 ax_times = []
+num_programs = len(programs)
 for i, program in enumerate(programs):
-    ax = plt.subplot(2, 2, i + 1, sharey=ax_times[-1] if i > 0 else None)
+    ax = plt.subplot(2, num_programs, i + 1, sharey=ax_times[-1] if i > 0 else None)
 
     for item in data:
         label = program['name'] + ' ' + item
@@ -106,7 +108,7 @@ ax_times[0].set_ylabel('Time (s)')
 # Create the memory plots
 ax_memory = []
 for i, program in enumerate(programs):
-    ax = plt.subplot(2, 2, i + 3, sharey=ax_memory[-1] if i > 0 else None)
+    ax = plt.subplot(2, num_programs, i + 1 + num_programs, sharey=ax_memory[-1] if i > 0 else None)
     ax.set_xlabel('Source size (# of chars)')
 
     for item in data:

@@ -1,5 +1,5 @@
 #include "metacpp.hpp"
-// #include "lisp.hpp"
+#include "lisp.hpp"
 
 #include <stdio.h>
 #include <typeinfo>
@@ -222,40 +222,18 @@ void rt_main()
 
 }
 
-/*
 constexpr char lisp_source[] = R"(
 (list 1.05 2.77 (list 3.14 2.71) (+ 1 2) (- 3.5 (* 3 1.5)))
 )";
 
-using lisp_source_type = metacpp::to_string_t <lisp_source>;
-using results = typename lisp::eval_t <lisp_source_type>;
+constexpr metacpp::data::constexpr_string lisp_source_str(lisp_source, sizeof(lisp_source) - 1);
+using results = typename lisp::eval_t <lisp_source_str>;
 
 // TODO: branching
 
-struct constexpr_string {
-	const char *str;
-	size_t size;
-
-	explicit constexpr constexpr_string(const char *str, size_t size)
-		: str(str), size(size) {}
-};
-
-template <constexpr_string s, int Index>
-struct constexpr_string_at {
-	static constexpr char value = s.str[Index];
-}; */
-
 int main()
 {
-	/* test_lang_list::rt_main();
+	test_lang_list::rt_main();
 	printf("RESULTS: %s\n", metacpp::io::to_string <results> ().data());
-	constexpr constexpr_string s(lisp_source, sizeof(lisp_source) - 1);
-	printf("s: %s, size: %d, string size= %d, char=%c\n",
-		s.str, s.size, std::string(lisp_source).size(),
-		constexpr_string_at <s, 10> ::value
-	);
-	constexpr_string_at <s, 10> x;
-	printf("x: %c\n", x.value); */
-
 	return 0;
 }

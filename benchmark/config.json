@@ -1,0 +1,19 @@
+{
+	"source_cap": 200,
+	"sample_size": 1,
+	"memory_cutoff": 100,
+	"programs": [
+		{"name": "v1", "dir" : "v1", "source" : "main.cpp"},
+		{"name" : "v2", "dir": "v2", "source" : "main.cpp"},
+		{"name" : "v3", "dir": "v3", "source" : "main.cpp"}
+	],
+	"subsources": {
+		"list" : "(list 1 2 3 4 5 6 7 8 9 10)",
+		"sum_hi" : "(+ 1 2 3 4 5 6 7 8 9 10)",
+		"prod_hi" : "(* 1 2 3 4 5 6 7 8 9 10)",
+		"sum_if" : "(+ 1 2 3.7 4 5 6.99 7 8.31 9 10.1)",
+		"prod_if" : "(* 1 2 3 4.3 5.5435 6 7 8 9.54 10)",
+		"raw_i" : "1 2 3 4 5 6 7 8 9 10",
+		"raw_f" : "1.1 2.2 3.3 4.4 5.5 6.6 7.7 8.8 9.9 10.1"
+	}
+}

@@ -282,57 +282,26 @@ struct impl_ftn_dispatcher <Str, Index> {
 	static constexpr bool success = true;
 };
 
-// Integer dispatcher
-// TODO: combine into a single dispatcher (requires float, then check if int...)
+// Read numbers
 template <metacpp::data::constexpr_string Str, int Index>
-requires (metacpp::lang::match_float <double> (Str, Index).success
-	&& !metacpp::lang::match_float <double> (Str, Index).dot)
+requires (metacpp::lang::match_float <double> (Str, Index).success)
 struct impl_ftn_dispatcher <Str, Index> {
+	static constexpr auto impl_result = metacpp::lang::match_float <double> (Str, Index);
+
 	// Skip whitespace
 	static constexpr size_t next = metacpp::lang::match_whitespace
-		(Str, metacpp::lang::match_int <long int> (Str, Index).next).next;
+		(Str, impl_result.next).next;
 
-	using type = metacpp::data::generic_list <
-		Int <metacpp::lang::match_int <long int> (Str, Index).value>
+	using impl_current_type = std::conditional_t <
+		impl_result.dot,
+		Float <impl_result.value>,
+		Int <(long int)(impl_result.value)>
 	>;
+
+	using type = metacpp::data::generic_list <impl_current_type>;
 
 	static constexpr bool success = true;
 };
-
-// Read float when there is a dot
-template <metacpp::data::constexpr_string Str, int Index>
-requires (metacpp::lang::match_float <double> (Str, Index).success
-	&& metacpp::lang::match_float <double> (Str, Index).dot)
-struct impl_ftn_dispatcher <Str, Index> {
-	// Skip whitespace
-	static constexpr size_t next = metacpp::lang::match_whitespace
-		(Str, metacpp::lang::match_float <double> (Str, Index).next).next;
-
-	using type = metacpp::data::generic_list <
-		Float <metacpp::lang::match_float <double> (Str, Index).value>
-	>;
-
-	static constexpr bool success = true;
-};
-
-/*
-template <int Index, char ... Chars>
-struct impl_is_non_whitespace {
-	static constexpr auto impl_array = std::array <bool, sizeof...(Chars)> {
-		(Chars == ' ' || Chars == '\t' || Chars == '\n')...
-	};
-
-	static constexpr bool impl_value() {
-		for (int i = Index; i < sizeof...(Chars); i++) {
-			if (!impl_array[i])
-				return true;
-		}
-
-		return false;
-	}
-
-	static constexpr bool value = impl_value();
-}; */
 
 constexpr bool impl_is_non_whitespace(const metacpp::data::constexpr_string &str, int index)
 {

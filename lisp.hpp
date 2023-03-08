@@ -299,6 +299,7 @@ struct impl_ftn_dispatcher <CHARS, Index> {
 };
 
 // Integer dispatcher
+// TODO: combine into a single dispatcher (requires float, then check if int...)
 template <char... Chars, int Index>
 requires (metacpp::lang::match_float <CHARS, double, Index> ::success
 	&& !metacpp::lang::match_float <CHARS, double, Index> ::dot)

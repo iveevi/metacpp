@@ -194,7 +194,6 @@ struct impl_op <op_type::divide, metacpp::data::generic_list <X, Y>> {
 // List dispatcher (starts with 'list')
 template <char... Chars, int Index>
 requires (metacpp::lang::match_string <CHARS, impl_list_str, Index> ::success)
-// requires impl_list_matcher <CHARS> ::success
 struct impl_ftn_dispatcher <CHARS, Index> {
 	// NOTE: successfuly matched list
 	static constexpr int impl_next_start = metacpp::lang::match_whitespace <

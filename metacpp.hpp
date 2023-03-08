@@ -35,36 +35,14 @@ struct list <T, x, Values...> {
 	using next = list <T, Values...>;
 };
 
-// Custom compile-time string derived from list
-template <char... Chars>
-using string = list <char, Chars...>;
+// Efficient and simple constexpr string
+struct constexpr_string {
+	const char *str;
+	size_t size;
 
-// TODO: alias from list below...
-
-// String constructor
-template <size_t N, typename F, size_t... indices>
-constexpr auto impl_make_seq_helper(F f, std::index_sequence <indices...> is)
-{
-	return string <(f()[indices])...> {};
-}
-
-template <typename F>
-constexpr auto impl_make_seq(F f)
-{
-	constexpr size_t N = f().size();
-	using indices = std::make_index_sequence <N>;
-	return impl_make_seq_helper <N> (f, indices {});
-};
-
-template <const char *str>
-struct to_string {
-	constexpr static auto value = data::impl_make_seq(
-		[]() {
-			return std::string_view {str};
-		}
-	);
-
-	using type = decltype(value);
+	constexpr_string() = delete;
+	explicit constexpr constexpr_string(const char *str, size_t size)
+		: str(str), size(size) {}
 };
 
 // Indexing
@@ -195,16 +173,6 @@ struct impl_is_list <const list <T, Values...>> {
 	static constexpr bool value = true;
 };
 
-template <typename>
-struct impl_is_string {
-	static constexpr bool value = false;
-};
-
-template <char ... Chars>
-struct impl_is_string <const data::string <Chars...>> {
-	static constexpr bool value = true;
-};
-
 // Size utility
 template <typename T>
 requires impl_is_list <T> ::value
@@ -230,10 +198,6 @@ struct impl_is_empty {
 
 }
 
-// String constructors
-template <const char *str>
-using to_string_t = typename data::to_string <str> ::type;
-
 // Type checks
 template <typename T>
 using is_list = data::impl_is_list <T>;
@@ -243,12 +207,6 @@ using is_list = data::impl_is_list <T>;
 // concern, use the non-constexpr versions instead.
 template <typename T>
 static constexpr bool is_list_v = data::impl_is_list <T> ::value;
-
-template <typename T>
-using is_string = data::impl_is_string <T>;
-
-template <typename T>
-static constexpr bool is_string_v = data::impl_is_string <T> ::value;
 
 // TODO: add for other data structures
 
@@ -324,314 +282,221 @@ namespace lang {
 // input string, and another field specifies the starting index (state) which
 // is 0 (start) by default.
 
-// Matching individual characters
-template <typename S, char E, int Index = 0>
-requires is_string <S> ::value
-struct match_char {
-	static constexpr bool success = false;
-	static constexpr int next = Index;
+struct result {
+	bool success;
+	size_t next;
 };
 
-template <char ... Chars, char E, int Index>
-struct match_char <const data::string <Chars...>, E, Index> {
-	static constexpr bool success = (index <const data::string <Chars...>, Index> ::value == E);
-	static constexpr int next = (success ? Index + 1 : Index);
-};
+constexpr result match_char(const data::constexpr_string &str, char c, size_t index = 0)
+{
+	bool success = (str.str[index] == c);
+	if (success)
+		index++;
+
+	return {success, index};
+}
 
 // Matching strings
-// TODO: use faster constexpr algorithm; retrieve arrays and strcmp them...
-template <typename S, typename E, int Si = 0, int Ei = 0>
-requires is_string <S> ::value && is_string <E> ::value
-struct match_string {
-	static constexpr bool success = false;
-	static constexpr int next = Si;
-};
+constexpr result match_string(const data::constexpr_string &str, const data::constexpr_string &match, size_t index = 0)
+{
+	if (index >= str.size)
+		return {false, index};
 
-template <char ... Chars, char ... Es, int Si, int Ei>
-requires (index <const data::string <Chars...>, Si> ::value == index <const data::string <Es...>, Ei> ::value)
-class match_string <const data::string <Chars...>, const data::string <Es...>, Si, Ei> {
-	using impl_next_t = match_string <
-		const data::string <Chars...>,
-		const data::string <Es...>,
-		Si + 1, Ei + 1
-	>;
+	if (index + match.size > str.size)
+		return {false, index};
 
-	static constexpr bool impl_success() {
-		// If end of E is reached, success
-		if constexpr (Ei == sizeof...(Es) - 1)
-			return true;
-		else
-			return impl_next_t::success;
+	for (int i = 0; i < match.size; i++) {
+		if (str.str[index + i] != match.str[i])
+			return {false, index};
 	}
 
-	static constexpr int impl_next() {
-		if constexpr (success)
-			return impl_next_t::next;
-		else
-			return Si;
-	}
-public:
-	static constexpr bool success = impl_success();
-	static constexpr int next = impl_next();
-};
+	return {true, index + match.size};
+}
 
 // Skipping whitespace
-template <typename T, int Index = 0>
-requires data::impl_is_string <T> ::value
-struct match_whitespace {
-	static constexpr int removed = 0;
-	static constexpr int next = Index;
+struct whitespace_result {
+	bool success;
+	size_t removed;
+	size_t next;
 };
 
-template <char... Chars, int Index>
-requires (Index >= 0 && Index < sizeof...(Chars))
-class match_whitespace <const data::string <Chars...>, Index> {
-	static constexpr char impl_char = index_variadic <char, Index, Chars...> ::value;
-	static constexpr bool impl_space = (impl_char == ' ' || impl_char == '\t' || impl_char == '\n');
+constexpr whitespace_result match_whitespace(const data::constexpr_string &str, size_t index = 0)
+{
+	if (index >= str.size)
+		return {false, index};
 
-	static constexpr int impl_removed() {
-		if constexpr (impl_space) {
-			return 1 + match_whitespace <
-				const data::string <Chars...>,
-				Index + 1
-			> ::removed;
-		} else{
-			return 0;
-		}
-	}
-
-	static constexpr int impl_next() {
-		if constexpr (impl_space) {
-			return match_whitespace <
-				const data::string <Chars...>,
-				Index + 1
-			> ::next;
+	size_t removed = 0;
+	while (index < str.size) {
+		char c = str.str[index];
+		if (c == ' ' || c == '\t' || c == '\n') {
+			removed++;
+			index++;
 		} else {
-			return Index;
+			break;
 		}
 	}
-public:
-	static constexpr int removed = impl_removed();
-	static constexpr int next = impl_next();
-};
 
-// TODO: indicating failure?
+	return {true, removed, index};
+}
 
 // Reading integers from compile-time strings
-template <typename S, typename I, int Index = 0, bool _Start = true>
-requires (is_string <S> ::value && std::is_arithmetic <I> ::value)
-struct match_int {
-	static constexpr bool success = false;
-	static constexpr int next = Index;
-
-	static constexpr I value(I accumulated = 0) {
-		return accumulated;
-	}
+template <typename I>
+struct int_result {
+	bool success;
+	size_t next;
+	I value;
 };
 
-template <char ... Chars, typename I, int Index, bool _Start>
-requires (Index >= 0 && Index < sizeof...(Chars))
-class match_int <const data::string <Chars...>, I, Index, _Start> {
-	static constexpr char impl_char = index_variadic <char, Index, Chars...> ::value;
+template <typename I>
+requires (std::is_arithmetic <I> ::value)
+constexpr int_result <I> match_int(const data::constexpr_string &str, size_t index = 0)
+{
+	size_t original_index = index;
+	if (index >= str.size)
+		return {false, index, 0};
 
-	using impl_next_t = match_int <
-		const data::string <Chars...>,
-		I, Index + 1, false
-	>;
+	bool negative = false;
+	if (str.str[index] == '-') {
+		negative = true;
+		index++;
+	}
 
-	static constexpr bool impl_success() {
-		if constexpr (sizeof...(Chars) == 0) {
-			return false;
+	// TODO: ensure that if negative there is at least one digit
+	I value = 0;
+
+	int digit_count = 0;
+	while (index < str.size) {
+		char c = str.str[index];
+		if (c >= '0' && c <= '9') {
+			value = 10 * value + (c - '0');
+			digit_count++;
+			index++;
 		} else {
-			if constexpr (impl_char >= '0' && impl_char <= '9') {
-				return true;
-			} else if constexpr (impl_char == '-' && _Start) {
-				return impl_next_t::success;
-			} else {
-				return false;
-			}
+			break;
 		}
 	}
 
-	static constexpr int impl_next() {
-		if constexpr (success)
-			return impl_next_t::next;
-		else
-			return Index;
-	}
-public:
-	static constexpr bool success = impl_success();
-	static constexpr int next = impl_next();
+	if (digit_count == 0)
+		return {false, original_index, 0};
 
-	static constexpr I value(I accumulated = 0) {
-		if constexpr (success) {
-			if constexpr (impl_char == '-') {
-				return -impl_next_t::value();
-			} else {
-				I value = impl_char - '0';
-				I a = 10 * accumulated + value;
-				if constexpr (impl_next_t::success)
-					return impl_next_t::value(a);
-				else
-					return a;
-			}
-		} else {
-			return 0;
-		}
-	}
-};
+	if (negative)
+		value = -value;
+
+	return {true, index, value};
+}
 
 // Reading floats from compile-time strings
-template <typename S, typename F, int Index = 0, bool _Start = true, bool _Dot = false>
-requires (is_string <S> ::value && std::is_arithmetic <F> ::value)
-struct match_float {
-	static constexpr bool success = false;
-	static constexpr int next = Index;
-	static constexpr bool dot = false;
-
-	static constexpr F value(F accumulated = 0) {
-		return accumulated;
-	}
+template <typename F>
+struct float_result {
+	bool success;
+	size_t next;
+	bool dot;
+	F value;
 };
 
-template <char ... Chars, typename F, int Index, bool _Start, bool _Dot>
-requires (Index >= 0 && Index < sizeof...(Chars))
-struct match_float <const data::string <Chars...>, F, Index, _Start, _Dot> {
-	static constexpr char impl_char = index_variadic <char, Index, Chars...> ::value;
+template <typename F>
+requires (std::is_floating_point <F> ::value)
+constexpr float_result <F> match_float(const data::constexpr_string &str, size_t index = 0)
+{
+	size_t original_index = index;
+	if (index >= str.size)
+		return {false, index, false, 0};
 
-	using impl_next_t = match_float <
-		const data::string <Chars...>,
-		F, Index + 1, false,
-		_Dot || (impl_char == '.')
-	>;
+	bool negative = false;
+	if (str.str[index] == '-') {
+		negative = true;
+		index++;
+	}
 
-	static constexpr bool impl_success() {
-		if constexpr (sizeof...(Chars) == 0) {
-			return false;
-		} else {
-			if constexpr (impl_char >= '0' && impl_char <= '9') {
-				return true;
-			} else if constexpr (impl_char == '-' && _Start) {
-				return impl_next_t::success;
-			} else if constexpr (impl_char == '.' && !_Dot) {
-				return impl_next_t::success;
+	F value_before = 0;
+	F value_after = 0;
+	F inv_power = 1/F(10);
+	bool dot = false;
+
+	int digit_count = 0;
+	while (index < str.size) {
+		char c = str.str[index];
+		if (c >= '0' && c <= '9') {
+			if (dot) {
+				value_after = value_after + inv_power * (c - '0');
+				inv_power /= F(10);
 			} else {
-				return false;
+				value_before = 10 * value_before + (c - '0');
 			}
+
+			digit_count++;
+			index++;
+		} else if (c == '.' && !dot) {
+			dot = true;
+			index++;
+		} else {
+			break;
 		}
 	}
 
-	static constexpr int impl_next() {
-		if constexpr (success)
-			return impl_next_t::next;
-		else
-			return Index;
-	}
+	if (digit_count == 0)
+		return {false, original_index, false, 0};
 
-	static constexpr bool impl_dot() {
-		if constexpr (success) {
-			if constexpr (_Dot || impl_char == '.') {
-				return true;
-			} else {
-				return impl_next_t::dot;
-			}
-		} else {
-			return false;
-		}
-	}
-public:
-	static constexpr bool success = impl_success();
-	static constexpr int next = impl_next();
-	static constexpr bool dot = impl_dot();
+	F value = value_before + value_after;
+	if (negative)
+		value = -value;
 
-	static constexpr F value(F accumulated = 0) {
-		// TODO: split into smaller functions...
-		if constexpr (success) {
-			if constexpr (impl_char == '-') {
-				return -impl_next_t::value();
-			} else {
-				if constexpr (_Dot) {
-					F value = impl_char - '0';
-					return (value + impl_next_t::value()) / 10;
-				} else {
-					if constexpr (impl_char == '.') {
-						return accumulated + impl_next_t::value();
-					} else {
-						F value = impl_char - '0';
-						F a = 10 * accumulated + value;
-						if constexpr (impl_next_t::success)
-							return impl_next_t::value(a);
-						else
-							return a;
-					}
-				}
-			}
-		} else {
-			return 0;
-		}
-	}
-};
-
-template <typename T, int Index, char ... Chars>
-using impl_arithmetic_parser = std::conditional_t <
-	std::is_floating_point_v <T>,
-	match_float <const data::string <Chars...>, T, Index>,
-	match_int <const data::string <Chars...>, T, Index>
->;
+	return {true, index, dot, value};
+}
 
 // NOTE: match_list <data::string, type, count, start index>
-template <typename, typename T, int Count = -1, int Index = 0>
+template <data::constexpr_string, typename T, int Count = -1, int Index = 0>
 struct match_list {
 	static constexpr bool success = (Count == 0);
-	static constexpr int next = Index;
-
+	static constexpr size_t next = Index;
 	using type = data::list <T>;
 };
 
-template <typename T, char ... Chars, int Count, int Index>
-requires (Index >= 0 && Index < sizeof...(Chars) && Count > 0)
-class match_list <const data::string <Chars...>, T, Count, Index> {
+// Specialization for int lists
+template <data::constexpr_string Str, typename T, int Count, int Index>
+requires (std::is_arithmetic <T> ::value && Count != 0 && Index >= 0 && Index < Str.size)
+class match_list <Str, T, Count, Index> {
+	// Choose the correct match function
+	static constexpr auto impl_match() {
+		if constexpr (std::is_floating_point <T> ::value)
+			return match_float <T> (Str, Index);
+		else
+			return match_int <T> (Str, Index);
+	}
+
+	static constexpr auto impl_match_result = impl_match();
+	static constexpr bool impl_next_in_bounds = (impl_match_result.next < Str.size);
+	static constexpr bool impl_comma = (Str.str[impl_match_result.next] == ',');
+	static constexpr size_t impl_after_next = impl_match_result.next + impl_comma;
+
+	using impl_next_t = match_list <Str, T, Count - 1, impl_after_next>;
+
 	static constexpr bool impl_success() {
-		if constexpr (impl_parser::success) {
-			if constexpr (Count == 1) {
-				return true;
-			} else {
-				if constexpr (impl_next_in_bounds && impl_comma::success) {
-					return impl_next_t::success;
-				} else {
-					return false;
-				}
-			}
+		if constexpr (Count < 0) {
+			return true;
 		} else {
-			return false;
+			// Deal with single element case explicitly
+			if constexpr (Count == 1) {
+				return impl_match_result.success;
+			} else {
+				if constexpr (impl_next_in_bounds && impl_comma)
+					return impl_next_t::success;
+				else
+					return false;
+			}
 		}
 	}
 
-	static constexpr int impl_next() {
-		if constexpr (success) {
-			if constexpr (Count == 1)
-				return impl_parser::next;
-			else
-				return impl_next_t::next;
-		} else {
+	static constexpr size_t impl_next() {
+		if constexpr (success)
+			return impl_next_t::next; // Always valid...
+		else
 			return Index;
-		}
+
 	}
 public:
-	using impl_parser = impl_arithmetic_parser <T, Index, Chars...>;
-
-	static constexpr bool impl_next_in_bounds = (impl_parser::next < sizeof...(Chars));
-	static constexpr int impl_next_index = impl_next_in_bounds ? impl_parser::next : Index;
-
-	using impl_comma = match_char <const data::string <Chars...>, ',', impl_next_index>;
-	using impl_next_t = match_list <
-		const data::string <Chars...>,
-		T, Count - 1,
-		impl_comma::next
-	>;
-
 	static constexpr bool success = impl_success();
-	static constexpr int next = impl_next();
+	static constexpr size_t next = impl_next();
 
 	template <bool, typename>
 	struct select {
@@ -640,68 +505,10 @@ public:
 
 	template <typename U, U ... Us>
 	struct select <true, data::list <U, Us...>> {
-		using type = data::list <U,
-			impl_parser::value(),
-			Us...
-		>;
+		using type = data::list <U, impl_match_result.value, Us...>;
 	};
 
 	using type = typename select <success, typename impl_next_t::type> ::type;
-	using next_type = typename impl_next_t::type;
-};
-
-// Unrestricted length
-template <typename T, char ... Chars, int Index>
-requires (Index >= 0 && Index < sizeof...(Chars))
-class match_list <const data::string <Chars...>, T, -1, Index> {
-	static constexpr int impl_next() {
-		if constexpr (impl_parser::success) {
-			if constexpr (impl_next_in_bounds && impl_comma::success) {
-				return impl_next_t::next;
-			} else {
-				return impl_parser::next;
-			}
-		} else {
-			return Index;
-		}
-	}
-public:
-	using impl_parser = impl_arithmetic_parser <T, Index, Chars...>;
-
-	static constexpr bool impl_next_in_bounds = (impl_parser::next < sizeof...(Chars));
-	static constexpr int impl_next_index = impl_next_in_bounds ? impl_parser::next : Index;
-
-	using impl_comma = match_char <const data::string <Chars...>, ',', impl_next_index>;
-	using impl_next_t = match_list <
-		const data::string <Chars...>,
-		T, -1 - !impl_next_in_bounds,
-		impl_comma::next
-	>;
-
-	// Always successful
-	static constexpr bool success = true;
-	static constexpr int next = impl_next();
-
-	// Building the resulting type
-	template <bool, typename>
-	struct select {
-		using type = data::list <T>;
-	};
-
-	template <typename U, U ... Us>
-	struct select <true, data::list <U, Us...>> {
-		using type = data::list <U,
-			impl_parser::value(),
-			Us...
-		>;
-	};
-
-	using type = typename select <
-		impl_parser::success,
-		typename impl_next_t::type
-	> ::type;
-
-	using next_type = typename impl_next_t::type;
 };
 
 }

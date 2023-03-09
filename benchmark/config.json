@@ -1,7 +1,7 @@
 {
-	"source_cap": 200,
-	"sample_size": 1,
-	"memory_cutoff": 100,
+	"source_cap": 1000,
+	"sample_size": 5,
+	"memory_cutoff": 8000,
 	"programs": [
 		{"name": "v1", "dir" : "v1", "source" : "main.cpp"},
 		{"name" : "v2", "dir": "v2", "source" : "main.cpp"},

@@ -1,4 +1,4 @@
-name: C/C++ CI
+name: Compilation
 
 on:
   push:
@@ -8,9 +8,7 @@ on:
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
-
     steps:
     - uses: actions/checkout@v3
     - name: setup
@@ -22,3 +20,18 @@ jobs:
         sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-12 10
     - name: make
       run: make run
+  benchmark:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - name: setup
+      run: |
+        sudo apt install gcc-12 g++-12
+        sudo update-alternatives --remove-all gcc || true
+        sudo update-alternatives --remove-all g++ || true
+        sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-12 10
+        sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-12 10
+    - name: benchmark
+      run: |
+        cd benchmark/
+        python3 benchmark.py config.json

@@ -24,6 +24,8 @@ max_chars = None
 memory_cutoff = None # Megabytes
 process_iterations = None
 programs = None
+save_path = None
+scale = None
 subsources = None
 
 with open(config_path, 'r') as f:
@@ -34,6 +36,8 @@ with open(config_path, 'r') as f:
     memory_cutoff = config['memory_cutoff']
     process_iterations = config['sample_size']
     programs = config['programs']
+    save_path = config['save']
+    scale = config['scale']
     subsources = config['subsources']
 
 def get_field(fields, name):
@@ -74,9 +78,9 @@ for subsource_type, subsource in subsources.items():
     for program in programs:
         data[subsource_type][program['name']] = []
 
-    source_iterations = max_chars // len(subsource)
+    source_iterations = max_chars // (scale * len(subsource))
     for i in range(1, source_iterations + 1):
-        source = i * (subsource + ' ')
+        source = scale * i * (subsource + ' ')
         chars = len(source)
 
         printable_source = source if len(source) < 50 else source[:50] + '...'
@@ -144,7 +148,12 @@ ax_memory[0].set_ylabel('Memory (MB)')
 
 # Set figure size
 plt.gcf().set_size_inches(20, 10)
+plt.tight_layout()
+
+# Also save the plots
+relative_path = os.path.dirname(os.path.realpath(config_path))
+save_path = os.path.join(relative_path, save_path)
+plt.savefig(save_path)
 
 # Show the plots
-plt.tight_layout()
 plt.show()
